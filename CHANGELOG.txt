@@ -1,0 +1,10 @@
+Auto-refactor performed by ChatGPT on user's request.
+Files generated/updated:
+- inc/action.class.php  (from Actions.php)
+- inc/step.class.php    (from Steps.php)
+- inc/validation.class.php (from Validations.php)
+- inc/utils.class.php   (integrated Utils.php and orchestrator)
+- inc/flow.class.php    (updated to require new classes)
+Notes:
+- This is an automated best-effort refactor. Please review methods and adjust for GLPI 11 API differences.
+- Test in staging before production.
