@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "build_to_public": "npm run build && mkdir -p /var/www/glpi/public/flow && cp -r ../dist/* /var/www/glpi/public/flow/ && chown -R www-data:www-data /var/www/glpi/public/flow && chmod -R 755 /var/www/glpi/public/flow"
+    "deploy": "npm run build && mkdir -p /var/www/glpi/public/flow && cp -r ../dist/* /var/www/glpi/public/flow/"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

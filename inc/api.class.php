@@ -53,6 +53,12 @@ class Api
                 case 'get_fields':
                     $this->sendResponse($this->getFields($_GET['table'] ?? ''));
                     break;
+                case 'get_task_template_preview':
+                    $this->sendResponse($this->getTaskTemplatePreview((int)($_GET['id'] ?? 0)));
+                    break;
+                case 'get_tags':
+                    $this->sendResponse($this->getTags());
+                    break;
                 default:
                     throw new \Exception('Action not found');
             }
@@ -259,7 +265,10 @@ class Api
             'action_types' => $actionTypes,
             'validation_types' => $validationTypes,
             'entities' => $this->getDropdownData('Entity'),
-            'categories' => $this->getDropdownData('ITILCategory')
+            'categories' => $this->getDropdownData('ITILCategory'),
+            'users' => $this->getUsers(),
+            'groups' => $this->getGroups(),
+            'task_templates' => $this->getTaskTemplates()
         ];
     }
 
@@ -315,5 +324,109 @@ class Api
             $fields[] = $data['COLUMN_NAME'];
         }
         return $fields;
+    }
+
+    private function getUsers()
+    {
+        global $DB;
+        $users = [];
+        $iterator = $DB->request([
+            'SELECT' => ['id', 'name', 'realname', 'firstname'],
+            'FROM' => 'glpi_users',
+            'WHERE' => ['is_deleted' => 0, 'is_active' => 1],
+            'ORDER' => 'name ASC'
+        ]);
+        foreach ($iterator as $data) {
+            $fullname = trim(($data['realname'] ?? '') . ' ' . ($data['firstname'] ?? ''));
+            $users[] = [
+                'id' => $data['id'],
+                'name' => $data['name'],
+                'completename' => !empty($fullname) ? $fullname . ' (' . $data['name'] . ')' : $data['name']
+            ];
+        }
+        return $users;
+    }
+
+    private function getGroups()
+    {
+        global $DB;
+        $groups = [];
+        $iterator = $DB->request([
+            'SELECT' => ['id', 'name', 'completename'],
+            'FROM' => 'glpi_groups',
+            'ORDER' => 'completename ASC'
+        ]);
+        foreach ($iterator as $data) {
+            $groups[] = [
+                'id' => $data['id'],
+                'name' => $data['name'],
+                'completename' => $data['completename'] ?? $data['name']
+            ];
+        }
+        return $groups;
+    }
+
+    private function getTaskTemplates()
+    {
+        global $DB;
+        $templates = [];
+        $iterator = $DB->request([
+            'SELECT' => ['id', 'name'],
+            'FROM' => 'glpi_tasktemplates',
+            'ORDER' => 'name ASC'
+        ]);
+        foreach ($iterator as $data) {
+            $templates[] = [
+                'id' => $data['id'],
+                'name' => $data['name']
+            ];
+        }
+        return $templates;
+    }
+
+    private function getTaskTemplatePreview($id)
+    {
+        global $DB;
+        if ($id <= 0) {
+            return ['error' => 'Invalid template ID'];
+        }
+
+        $iterator = $DB->request([
+            'SELECT' => ['id', 'name', 'content', 'taskcategories_id', 'is_private', 'users_id_tech', 'groups_id_tech'],
+            'FROM' => 'glpi_tasktemplates',
+            'WHERE' => ['id' => $id]
+        ]);
+
+        if ($iterator->count() === 0) {
+            return ['error' => 'Template not found'];
+        }
+
+        return $iterator->current();
+    }
+
+    private function getTags()
+    {
+        global $DB;
+        $tags = [];
+
+        // Check if table exists (plugin might not be installed)
+        $tableExists = $DB->tableExists('glpi_plugin_tag_tags');
+        if (!$tableExists) {
+            return [];
+        }
+
+        $iterator = $DB->request([
+            'SELECT' => ['id', 'name'],
+            'FROM' => 'glpi_plugin_tag_tags',
+            'ORDER' => 'name ASC'
+        ]);
+
+        foreach ($iterator as $data) {
+            $tags[] = [
+                'id' => $data['id'],
+                'name' => $data['name']
+            ];
+        }
+        return $tags;
     }
 }

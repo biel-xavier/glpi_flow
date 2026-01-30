@@ -5,5 +5,5 @@ include('../../../inc/includes.php');
 \Session::checkLoginUser();
 
 // Redirect to the standalone React app in the public folder
-header("Location: " . $CFG_GLPI['root_doc'] . "/flow/");
+header("Location: " . $CFG_GLPI['root_doc'] . "/flow/index.html");
 exit();

@@ -164,6 +164,23 @@ function plugin_flow_install()
         $migration->addPostQuery($query);
     }
 
+    // 9. Step History (Transition Log)
+    if (!$DB->tableExists('glpi_plugin_flow_step_history')) {
+        $query = "CREATE TABLE `glpi_plugin_flow_step_history` (
+          `id` int(11) NOT NULL AUTO_INCREMENT,
+          `tickets_id` int(11) NOT NULL,
+          `plugin_flow_flows_id` int(11) NOT NULL,
+          `plugin_flow_steps_id` int(11) NOT NULL,
+          `date_entered` timestamp DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (`id`),
+          KEY `tickets_id` (`tickets_id`),
+          KEY `plugin_flow_flows_id` (`plugin_flow_flows_id`),
+          KEY `plugin_flow_steps_id` (`plugin_flow_steps_id`),
+          KEY `date_entered` (`date_entered`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+        $migration->addPostQuery($query);
+    }
+
     $migration->executeMigration();
 
     // Seed Action Types
@@ -332,6 +349,7 @@ function plugin_flow_uninstall()
 {
     global $DB;
     $tables = [
+        'glpi_plugin_flow_step_history',
         'glpi_plugin_flow_ticket_states',
         'glpi_plugin_flow_actions',
         'glpi_plugin_flow_validations',

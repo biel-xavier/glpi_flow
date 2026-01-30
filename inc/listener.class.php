@@ -117,6 +117,9 @@ class Listener
             'status' => 'PENDING',
             'date_mod' => $_SESSION['glpi_currenttime'] ?? date('Y-m-d H:i:s')
         ]);
+
+        // Log this initial step entry to history
+        self::logStepHistory($ticketId, $flowId, $stepId);
     }
 
     private static function updateTicketState($stateId, $nextStepId)
@@ -178,7 +181,20 @@ class Listener
 
     private static function moveToStep(CommonITILObject $item, $state, $targetStepId)
     {
+        // Get target step info before transition
+        $targetStep = self::getStep($targetStepId);
+
+        // Update state to new step
         self::updateTicketState($state['id'], $targetStepId);
+
+        // Log the transition to history
+        self::logStepHistory($item->getID(), $state['plugin_flow_flows_id'], $targetStepId);
+
+        // Check if this is an End step - mark flow as complete
+        if ($targetStep && $targetStep['step_type'] === 'End') {
+            self::markFlowComplete($state['id']);
+        }
+
         self::$already_processed = true; // Avoid recursion if same hook is triggered
         self::runStepActions($targetStepId, $item);
 
@@ -283,6 +299,37 @@ class Listener
             if ($handler) {
                 $handler->execute($item, $config);
             }
+        }
+    }
+
+    private static function logStepHistory($ticketId, $flowId, $stepId)
+    {
+        global $DB;
+        try {
+            $DB->insert('glpi_plugin_flow_step_history', [
+                'tickets_id' => $ticketId,
+                'plugin_flow_flows_id' => $flowId,
+                'plugin_flow_steps_id' => $stepId,
+                'date_entered' => $_SESSION['glpi_currenttime'] ?? date('Y-m-d H:i:s')
+            ]);
+        } catch (\Exception $e) {
+            Toolbox::logInFile('php-errors', 'Flow: Failed to log step history: ' . $e->getMessage());
+        }
+    }
+
+    private static function markFlowComplete($stateId)
+    {
+        global $DB;
+        try {
+            $DB->update('glpi_plugin_flow_ticket_states', [
+                'status' => 'COMPLETE',
+                'date_mod' => $_SESSION['glpi_currenttime'] ?? date('Y-m-d H:i:s')
+            ], [
+                'id' => $stateId
+            ]);
+            Toolbox::logInFile('php-errors', 'Flow: Marked flow as COMPLETE for state ID: ' . $stateId);
+        } catch (\Exception $e) {
+            Toolbox::logInFile('php-errors', 'Flow: Failed to mark flow complete: ' . $e->getMessage());
         }
     }
 }

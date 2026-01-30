@@ -15,6 +15,7 @@ import FlashOnIcon from '@mui/icons-material/FlashOn'
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser'
 import CloseIcon from '@mui/icons-material/Close'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
+import SearchableSelect from './SearchableSelect'
 
 function FlowEditor({ id, metadata, csrfToken, onBack }) {
   const [flow, setFlow] = useState({
@@ -31,11 +32,20 @@ function FlowEditor({ id, metadata, csrfToken, onBack }) {
   const [jsonError, setJsonError] = useState(null)
   const [dbTables, setDbTables] = useState([])
   const [dbFields, setDbFields] = useState({}) // { tableName: [fields] }
+  const [taskTemplatePreview, setTaskTemplatePreview] = useState(null)
+  const [tags, setTags] = useState([])
 
   useEffect(() => {
     fetch('../plugins/flow/front/api.php?action=get_tables')
       .then(res => res.json())
       .then(setDbTables)
+  }, [])
+
+  useEffect(() => {
+    fetch('../plugins/flow/front/api.php?action=get_tags')
+      .then(res => res.json())
+      .then(setTags)
+      .catch(() => setTags([])) // Fallback if tag plugin not installed
   }, [])
 
   useEffect(() => {
@@ -61,6 +71,20 @@ function FlowEditor({ id, metadata, csrfToken, onBack }) {
       .then(res => res.json())
       .then(fields => {
         setDbFields(prev => ({ ...prev, [tableName]: fields }));
+      });
+  }
+
+  const fetchTaskTemplatePreview = (templateId) => {
+    if (!templateId || templateId <= 0) {
+      setTaskTemplatePreview(null);
+      return;
+    }
+    fetch(`../plugins/flow/front/api.php?action=get_task_template_preview&id=${templateId}`)
+      .then(res => res.json())
+      .then(preview => {
+        if (!preview.error) {
+          setTaskTemplatePreview(preview);
+        }
       });
   }
 
@@ -235,9 +259,9 @@ function FlowEditor({ id, metadata, csrfToken, onBack }) {
                     <Chip label={step.step_type} size="small" variant="outlined" sx={{ mr: 2 }} />
                   </Box>
                 </AccordionSummary>
-                <AccordionDetails sx={{ borderTop: '1px solid rgba(255,255,255,0.05)', pt: 3, bgcolor: 'rgba(255,255,255,0.01)' }}>
+                <AccordionDetails sx={{ borderTop: '1px solid rgba(255,255,255,0.05)', pt: 3, pb: 4, px: 3, bgcolor: 'rgba(255,255,255,0.01)', overflow: 'visible' }}>
                   <Stack spacing={3}>
-                    <Grid container spacing={4}>
+                    <Grid container spacing={2}>
                       <Grid item xs={12} sm={6}>
                         <TextField 
                           label="Nome do Passo" 
@@ -265,7 +289,7 @@ function FlowEditor({ id, metadata, csrfToken, onBack }) {
                       </Grid>
                     </Grid>
 
-                    <Grid container spacing={4}>
+                    <Grid container spacing={2}>
                       {/* Actions */}
                       <Grid item xs={12} md={6}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
@@ -450,6 +474,12 @@ function FlowEditor({ id, metadata, csrfToken, onBack }) {
                   const isFieldIndex = key === 'fieldIndex';
                   const currentTable = baseConsultation === 'form' ? 'glpi_tickets' : editingItem.data.config?.table;
 
+                  // Smart detection for special fields
+                  const isUserField = key === 'users_id' || key === 'user_id';
+                  const isGroupField = key === 'groups_id' || key === 'group_id';
+                  const isTaskTemplateField = key === 'tasktemplates_id';
+                  const isTagField = key.toLowerCase().includes('tag') && !isTableField;
+
                   // Hide table and fieldIndex if consulting form
                   if ((isTableField || isFieldIndex) && baseConsultation === 'form') return null;
 
@@ -469,32 +499,81 @@ function FlowEditor({ id, metadata, csrfToken, onBack }) {
                             ))}
                           </Select>
                         </FormControl>
-                      ) : isTableField ? (
-                        <FormControl fullWidth size="small">
-                          <InputLabel>Tabela (GLPI)</InputLabel>
-                          <Select
-                            label="Tabela (GLPI)"
+                      ) : isUserField ? (
+                        <SearchableSelect
+                          label="Usuário"
+                          value={editingItem.data.config?.[key] || ''}
+                          onChange={val => updateItemConfig(key, parseInt(val) || 0)}
+                          options={(metadata?.users || []).map(u => ({ value: u.id, label: u.completename }))}
+                          size="small"
+                          placeholder="-- Selecione o Usuário --"
+                        />
+                      ) : isGroupField ? (
+                        <SearchableSelect
+                          label="Grupo"
+                          value={editingItem.data.config?.[key] || ''}
+                          onChange={val => updateItemConfig(key, parseInt(val) || 0)}
+                          options={(metadata?.groups || []).map(g => ({ value: g.id, label: g.completename }))}
+                          size="small"
+                          placeholder="-- Selecione o Grupo --"
+                        />
+                      ) : isTaskTemplateField ? (
+                        <>
+                          <SearchableSelect
+                            label="Template de Tarefa"
                             value={editingItem.data.config?.[key] || ''}
-                            onChange={e => updateItemConfig(key, e.target.value)}
-                          >
-                            <MenuItem value="">-- Selecione a Tabela --</MenuItem>
-                            {dbTables.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-                          </Select>
-                        </FormControl>
+                            onChange={val => {
+                              const templateId = parseInt(val) || 0;
+                              updateItemConfig(key, templateId);
+                              fetchTaskTemplatePreview(templateId);
+                            }}
+                            options={(metadata?.task_templates || []).map(t => ({ value: t.id, label: t.name }))}
+                            size="small"
+                            placeholder="-- Selecione o Template --"
+                          />
+                          {taskTemplatePreview && (
+                            <Paper elevation={2} sx={{ p: 2, mt: 2, bgcolor: 'background.default' }}>
+                              <Typography variant="caption" color="primary" sx={{ fontWeight: 'bold', display: 'block', mb: 1 }}>
+                                PREVIEW DO TEMPLATE
+                              </Typography>
+                              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '11px' }}>
+                                {taskTemplatePreview.content || '(sem conteúdo)'}
+                              </Typography>
+                            </Paper>
+                          )}
+                        </>
+                      ) : isTagField ? (
+                        <SearchableSelect
+                          label="Tag"
+                          value={editingItem.data.config?.[key] || ''}
+                          onChange={val => updateItemConfig(key, parseInt(val) || 0)}
+                          options={tags.map(tag => ({ value: tag.id, label: tag.name }))}
+                          size="small"
+                          placeholder="-- Selecione a Tag --"
+                        />
+                      ) : isTableField ? (
+                        <SearchableSelect
+                          label="Tabela (GLPI)"
+                          value={editingItem.data.config?.[key] || ''}
+                          onChange={val => updateItemConfig(key, val)}
+                          options={dbTables.map(t => ({ value: t, label: t }))}
+                          size="small"
+                          placeholder="-- Selecione a Tabela --"
+                        />
                       ) : (isColumnField && currentTable) ? (
-                        <FormControl fullWidth size="small">
-                          <InputLabel>{key === 'field' ? 'Campo' : 'Campo de Índice'}</InputLabel>
-                          <Select
+                        <Box>
+                          <SearchableSelect
                             label={key === 'field' ? 'Campo' : 'Campo de Índice'}
                             value={editingItem.data.config?.[key] || ''}
-                            onChange={e => updateItemConfig(key, e.target.value)}
+                            onChange={val => updateItemConfig(key, val)}
+                            options={(dbFields[currentTable] || []).map(f => ({ value: f, label: f }))}
                             disabled={!dbFields[currentTable]}
-                          >
-                            <MenuItem value="">-- Selecione o Campo --</MenuItem>
-                            {dbFields[currentTable]?.map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
-                          </Select>
+                            loading={!dbFields[currentTable]}
+                            size="small"
+                            placeholder="-- Selecione o Campo --"
+                          />
                           {!dbFields[currentTable] && <Typography variant="caption" color="primary">Carregando campos...</Typography>}
-                        </FormControl>
+                        </Box>
                       ) : (
                         <TextField
                           fullWidth
