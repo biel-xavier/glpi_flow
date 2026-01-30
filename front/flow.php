@@ -1,8 +1,9 @@
 <?php
 include('../../../inc/includes.php');
 
-Html::header(PluginFlowFlow::getTypeName(2), $_SERVER['PHP_SELF'], "plugins", "flow");
+// Check if user is logged in
+\Session::checkLoginUser();
 
-Search::show('PluginFlowFlow');
-
-Html::footer();
+// Redirect to the standalone React app in the public folder
+header("Location: " . $CFG_GLPI['root_doc'] . "/flow/");
+exit();
