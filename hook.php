@@ -342,7 +342,56 @@ function plugin_flow_install()
         }
     }
 
+    // 10. Install Assets (Frontend)
+    plugin_flow_install_assets();
+
     return true;
+}
+
+/**
+ * Copy frontend assets from web/dist to GLPI_ROOT/public/flow
+ */
+function plugin_flow_install_assets()
+{
+    $source = __DIR__ . '/web/dist';
+    $dest = GLPI_ROOT . '/public/flow';
+
+    if (!is_dir($source)) {
+        // If dist doesn't exist, we can't deploy. 
+        // In a dev env, this might mean build hasn't run.
+        // In prod, it means the package is malformed.
+        \Toolbox::logInFile('php-errors', "Flow Plugin: web/dist directory not found. Assets not deployed.");
+        return;
+    }
+
+    if (!is_dir($dest)) {
+        if (!mkdir($dest, 0755, true)) {
+            \Toolbox::logInFile('php-errors', "Flow Plugin: Failed to create public/flow directory.");
+            return;
+        }
+    }
+
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($source, RecursiveDirectoryIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST
+    );
+
+    foreach ($iterator as $item) {
+        // Calculate relative path safely
+        // $item is SplFileInfo
+        $fullPath = $item->getPathname();
+        // Remove source prefix to get relative path
+        $relativePath = substr($fullPath, strlen($source) + 1);
+        $destPath = $dest . DIRECTORY_SEPARATOR . $relativePath;
+
+        if ($item->isDir()) {
+            if (!is_dir($destPath)) {
+                mkdir($destPath);
+            }
+        } else {
+            copy($item, $destPath);
+        }
+    }
 }
 
 function plugin_flow_uninstall()

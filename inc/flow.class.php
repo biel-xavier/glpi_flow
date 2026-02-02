@@ -9,11 +9,11 @@ class PluginFlowFlow extends CommonDBTM
 
    public function defineTabs($options = [])
    {
-        $ong = [];
-        $this->addDefaultFormTab($ong);
-        $this->addStandardTab('PluginFlowStep', $ong, $options);
+      $ong = [];
+      $this->addDefaultFormTab($ong);
+      $this->addStandardTab('PluginFlowStep', $ong, $options);
 
-        return $ong;
+      return $ong;
    }
 
    public static function getTypeName($nb = 0)
@@ -53,7 +53,9 @@ class PluginFlowFlow extends CommonDBTM
 
    public static function canUpdate(): bool
    {
-      return Session::haveRight('config', UPDATE);
+      $res = Session::haveRight('config', UPDATE);
+      \Toolbox::logInFile('flow-debug', "PluginFlowFlow::canUpdate check: " . ($res ? 'YES' : 'NO'));
+      return $res;
    }
 
    public static function canCreate(): bool
@@ -145,7 +147,7 @@ class PluginFlowFlow extends CommonDBTM
       echo "<tr class='tab_bg_1'>";
       echo "<td class='middle right'>" . __('Comments') . "</td>";
       echo "<td class='center middle' colspan='3'><textarea cols='100' rows='5' name='comment' >" .
-           $this->fields["comment"] . "</textarea></td>";
+         $this->fields["comment"] . "</textarea></td>";
       echo "</tr>";
 
       $this->showFormButtons($options);

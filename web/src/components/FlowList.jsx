@@ -7,18 +7,67 @@ import CategoryIcon from '@mui/icons-material/Category'
 import ActiveIcon from '@mui/icons-material/CheckCircle'
 import InactiveIcon from '@mui/icons-material/Cancel'
 
-function FlowList({ onEdit }) {
+function FlowList({ onEdit, csrfToken }) {
   const [flows, setFlows] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetch('../plugins/flow/front/api.php?action=get_flows')
+  const fetchFlows = () => {
+    fetch(`../../marketplace/flow/front/api.php?action=get_flows&_t=${new Date().getTime()}`)
       .then(res => res.json())
       .then(data => {
         setFlows(data)
         setLoading(false)
       })
+  }
+
+  useEffect(() => {
+    fetchFlows()
   }, [])
+
+  const handleDelete = async (id) => {
+    if (!confirm('Tem certeza que deseja excluir este fluxo?')) return;
+
+    try {
+        const res = await fetch(`../../marketplace/flow/front/api.php?action=delete_flow&id=${id}`, {
+            method: 'GET'
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            fetchFlows();
+        } else {
+            alert('Erro ao excluir: ' + (data.error || 'Erro desconhecido'));
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Erro de conexão ao excluir.');
+    }
+  }
+
+  const handleToggleActive = async (flow) => {
+    const newStatus = flow.is_active == 1 ? 0 : 1;
+    console.log('Toggling active. CSRF:', csrfToken);
+    
+    try {
+        const res = await fetch(`../../marketplace/flow/front/api.php?action=toggle_active`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Glpi-Csrf-Token': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ id: flow.id, is_active: newStatus })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            fetchFlows();
+        } else {
+            alert('Erro ao atualizar status: ' + (data.error || 'Erro desconhecido'));
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Erro de conexão ao atualizar status.');
+    }
+  }
 
   if (loading) return <Box sx={{ textAlign: 'center', py: 10, color: 'text.secondary' }}>Carregando fluxos...</Box>
 
@@ -41,14 +90,17 @@ function FlowList({ onEdit }) {
                   <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'primary.main', fontWeight: 'bold' }}>
                     ID: {flow.id}
                   </Typography>
-                  <Chip 
-                    label={flow.is_active ? "Ativo" : "Inativo"} 
-                    size="small"
-                    icon={flow.is_active ? <ActiveIcon /> : <InactiveIcon />}
-                    color={flow.is_active ? "success" : "error"}
-                    variant="outlined"
-                    sx={{ borderRadius: 1.5, fontWeight: 'bold', fontSize: '10px' }}
-                  />
+                  <Tooltip title="Clique para alterar o status">
+                    <Chip 
+                        label={flow.is_active == 1 ? "Ativo" : "Inativo"} 
+                        size="small"
+                        onClick={() => handleToggleActive(flow)}
+                        icon={flow.is_active == 1 ? <ActiveIcon /> : <InactiveIcon />}
+                        color={flow.is_active == 1 ? "success" : "error"}
+                        variant="outlined"
+                        sx={{ borderRadius: 1.5, fontWeight: 'bold', fontSize: '10px', cursor: 'pointer' }}
+                    />
+                  </Tooltip>
                 </Box>
                 
                 <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, color: 'white' }}>
@@ -84,7 +136,11 @@ function FlowList({ onEdit }) {
                 >
                   Editar
                 </Button>
-                <IconButton color="error" sx={{ bgcolor: 'rgba(244, 67, 54, 0.05)', borderRadius: 2 }}>
+                <IconButton 
+                    color="error" 
+                    sx={{ bgcolor: 'rgba(244, 67, 54, 0.05)', borderRadius: 2 }}
+                    onClick={() => handleDelete(flow.id)}
+                >
                   <DeleteIcon fontSize="small" />
                 </IconButton>
               </Box>

@@ -12,6 +12,7 @@ use PluginFlowValidationType;
 use Entity;
 use ITILCategory;
 use CommonITILObject;
+use Toolbox;
 
 class Api
 {
@@ -39,6 +40,11 @@ class Api
                     $id = (int)($_GET['id'] ?? 0);
                     $this->sendResponse($this->deleteFlow($id));
                     break;
+                case 'toggle_active':
+                    if ($method !== 'POST') throw new \Exception('Method not allowed');
+                    $data = json_decode(file_get_contents('php://input'), true);
+                    $this->sendResponse($this->toggleActive($data));
+                    break;
                 case 'get_metadata':
                     $this->sendResponse($this->getMetadata());
                     break;
@@ -58,6 +64,11 @@ class Api
                     break;
                 case 'get_tags':
                     $this->sendResponse($this->getTags());
+                    break;
+                case 'import_flow':
+                    if ($method !== 'POST') throw new \Exception('Method not allowed');
+                    $data = json_decode(file_get_contents('php://input'), true);
+                    $this->sendResponse($this->importFlow($data));
                     break;
                 default:
                     throw new \Exception('Action not found');
@@ -243,6 +254,33 @@ class Api
         return ['status' => 'success'];
     }
 
+    private function toggleActive($data)
+    {
+        $id = (int)($data['id'] ?? 0);
+        $isActive = (int)($data['is_active'] ?? 0);
+
+        \Toolbox::logInFile('flow-debug', "API toggleActive called for ID: $id. New Status: $isActive");
+
+        if ($id <= 0) throw new \Exception('Invalid Flow ID');
+
+        $flow = new \PluginFlowFlow();
+
+        // Check rights manually to debug
+        if (!$flow->can($id, UPDATE)) {
+            \Toolbox::logInFile('flow-debug', "API toggleActive: can($id, UPDATE) returned FALSE");
+            // Proceed anyway to let GLPI handle it or die trying
+        } else {
+            \Toolbox::logInFile('flow-debug', "API toggleActive: can($id, UPDATE) returned TRUE");
+        }
+
+        $flow->update([
+            'id' => $id,
+            'is_active' => $isActive
+        ]);
+
+        return ['status' => 'success'];
+    }
+
     private function getMetadata()
     {
         global $DB;
@@ -275,7 +313,15 @@ class Api
     private function getDropdownData($itemtype)
     {
         global $DB;
-        $table = getTableForItemType($itemtype);
+
+        // Handle common types explicitly to be safe
+        if ($itemtype === 'Entity') {
+            $table = 'glpi_entities';
+        } elseif ($itemtype === 'ITILCategory') {
+            $table = 'glpi_itilcategories';
+        } else {
+            $table = getTableForItemType($itemtype);
+        }
         $iter = $DB->request([
             'SELECT' => ['id', 'name', 'completename'],
             'FROM' => $table,
@@ -428,5 +474,166 @@ class Api
             ];
         }
         return $tags;
+    }
+    private function importFlow($data)
+    {
+        global $DB;
+
+        $jsonContent = $data['json_content'] ?? '';
+        $entityId = (int)($data['entities_id'] ?? 0);
+        $catId = (int)($data['itilcategories_id'] ?? 0);
+        $flowName = $data['name'] ?? 'Imported Flow';
+
+        if (empty($jsonContent)) {
+            throw new \Exception('Empty JSON content');
+        }
+
+        $flowData = json_decode($jsonContent, true);
+        if (!$flowData) {
+            throw new \Exception('Invalid JSON format');
+        }
+
+        $DB->beginTransaction();
+
+        try {
+            // 1. Create Flow
+            $flow = new \PluginFlowFlow();
+            $flowId = $flow->add([
+                'name' => $flowName,
+                'entities_id' => $entityId,
+                'itilcategories_id' => $catId,
+                'is_active' => 0 // Import as inactive by default
+            ]);
+
+            if (!$flowId) {
+                throw new \Exception('Failed to create Flow');
+            }
+
+            // 2. Create Steps & Map Names to IDs
+            $stepNameMap = []; // Name -> DB ID
+
+            foreach ($flowData as $step) {
+                $stepName = $step['stepName'];
+
+                // Map Legacy Types
+                $typeMap = [
+                    'initial'   => 'Initial',
+                    'common'    => 'Common',
+                    'condition' => 'Condition',
+                    'end'       => 'End'
+                ];
+                $stepType = $typeMap[strtolower($step['stepType'] ?? 'common')] ?? 'Common';
+
+                $stepObj = new \PluginFlowStep();
+                $stepId = $stepObj->add([
+                    'plugin_flow_flows_id' => $flowId,
+                    'name' => $stepName,
+                    'step_type' => $stepType
+                ]);
+
+                if (!$stepId) {
+                    throw new \Exception("Failed to create step: $stepName");
+                }
+
+                $stepNameMap[$stepName] = $stepId;
+
+                // 3. Add Validations
+                if (isset($step['validations']) && is_array($step['validations'])) {
+                    foreach ($step['validations'] as $v) {
+                        $valObj = new \PluginFlowValidation();
+                        $valObj->add([
+                            'plugin_flow_steps_id' => $stepId,
+                            'validation_type' => 'QUERY_CHECK',
+                            'validation_config' => json_encode($v),
+                            'severity' => 'BLOCKER'
+                        ]);
+                    }
+                }
+
+                // 4. Add Actions (Legacy Mapping)
+                if (isset($step['actions']) && is_array($step['actions'])) {
+                    foreach ($step['actions'] as $legacyType => $config) {
+                        $actionType = '';
+                        $actionConfig = [];
+
+                        switch ($legacyType) {
+                            case 'insert_tag':
+                                $actionType = 'ADD_TAG';
+                                $actionConfig = ['tag_id' => $config];
+                                break;
+                            case 'transfer_to_user':
+                                $actionType = 'ADD_ACTOR';
+                                $actionConfig = ['actor_type' => 'assign', 'user_id' => $config, 'mode' => 'replace'];
+                                break;
+                            case 'transfer_to_group':
+                                $actionType = 'ADD_ACTOR';
+                                $actionConfig = ['actor_type' => 'assign', 'group_id' => $config, 'mode' => 'replace'];
+                                break;
+                            case 'insert_task_template':
+                                $actionType = 'ADD_TASK_TEMPLATE';
+                                $actionConfig = ['tasktemplates_id' => $config];
+                                break;
+                            case 'insert_status':
+                                $actionType = 'CHANGE_STATUS';
+                                $actionConfig = ['status' => $config];
+                                break;
+                            case 'request_approval_to_user':
+                                $actionType = 'REQUEST_VALIDATION';
+                                $actionConfig = ['user_id' => $config];
+                                break;
+                            case 'transfer_to_user_based_field_users':
+                                $actionType = 'TRANSFER_FROM_QUERY';
+                                $actionConfig = $config; // Assuming compatible
+                                break;
+                            case 'request_approval_to_user_based_field_users':
+                                $actionType = 'REQUEST_VALIDATION_FROM_QUERY';
+                                $actionConfig = $config; // Assuming compatible
+                                break;
+                            case 'insert_sla_tto':
+                                $actionType = 'ADD_SLA_TTO';
+                                $actionConfig = ['slas_id' => $config];
+                                break;
+                        }
+
+                        if ($actionType) {
+                            $actObj = new \PluginFlowAction();
+                            $actObj->add([
+                                'plugin_flow_steps_id' => $stepId,
+                                'action_type' => $actionType,
+                                'action_config' => json_encode($actionConfig)
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            // 5. Create Transitions
+            foreach ($flowData as $step) {
+                if (!isset($stepNameMap[$step['stepName']])) continue;
+                $sourceId = $stepNameMap[$step['stepName']];
+
+                // Helper to add transition
+                $addTrans = function ($targetName, $type) use ($sourceId, $stepNameMap) {
+                    if (isset($stepNameMap[$targetName])) {
+                        $transObj = new \PluginFlowTransition();
+                        $transObj->add([
+                            'plugin_flow_steps_id_source' => $sourceId,
+                            'plugin_flow_steps_id_target' => $stepNameMap[$targetName],
+                            'transition_type' => $type
+                        ]);
+                    }
+                };
+
+                if (isset($step['nextStep'])) $addTrans($step['nextStep'], 'default');
+                if (isset($step['nextStepCasePositive'])) $addTrans($step['nextStepCasePositive'], 'condition_positive');
+                if (isset($step['nextStepCaseNegative'])) $addTrans($step['nextStepCaseNegative'], 'condition_negative');
+            }
+
+            $DB->commit();
+            return ['status' => 'success', 'flow_id' => $flowId];
+        } catch (\Exception $e) {
+            $DB->rollback();
+            throw new \Exception("Import Failed: " . $e->getMessage());
+        }
     }
 }

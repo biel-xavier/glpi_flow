@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react'
-import { ThemeProvider, createTheme, CssBaseline, Box, Container, AppBar, Toolbar, Typography, Button } from '@mui/material'
+import { ThemeProvider, createTheme, CssBaseline, Box, Container, AppBar, Toolbar, Typography, Button, IconButton, Tooltip } from '@mui/material'
 import LayoutIcon from '@mui/icons-material/Dashboard'
 import AddIcon from '@mui/icons-material/Add'
+import UploadFileIcon from '@mui/icons-material/UploadFile'
+import ExitToAppIcon from '@mui/icons-material/ExitToApp'
 import FlowList from './components/FlowList'
 import FlowEditor from './components/FlowEditor'
+import FlowImport from './components/FlowImport'
 
 const theme = createTheme({
   palette: {
@@ -55,7 +58,7 @@ function App() {
   const [csrfToken, setCsrfToken] = useState('')
 
   useEffect(() => {
-    fetch('../plugins/flow/front/api.php?action=get_metadata')
+    fetch(`../../marketplace/flow/front/api.php?action=get_metadata&_t=${new Date().getTime()}`)
       .then(res => res.json())
       .then(data => {
         setMetadata(data)
@@ -87,23 +90,48 @@ function App() {
                 <Typography variant="h4" sx={{ fontWeight: 800, color: 'white' }}>Flow Manager</Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>Automação inteligente para GLPI</Typography>
               </Box>
+              <Tooltip title="Voltar ao GLPI">
+                  <IconButton 
+                    onClick={() => window.location.href = '/front/central.php'}
+                    sx={{ color: 'text.secondary', ml: 1, '&:hover': { color: 'white', bgcolor: 'rgba(255,255,255,0.1)' } }}
+                  >
+                    <ExitToAppIcon />
+                  </IconButton>
+              </Tooltip>
             </Box>
             
+
             {view === 'list' && (
-              <Button 
-                variant="contained" 
-                startIcon={<AddIcon />}
-                onClick={handleCreateFlow}
-                sx={{ px: 3, py: 1.5 }}
-              >
-                Novo Fluxo
-              </Button>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Button 
+                    variant="outlined" 
+                    startIcon={<UploadFileIcon />}
+                    onClick={() => setView('import')}
+                    sx={{ px: 3, py: 1.5, borderColor: 'rgba(255,255,255,0.2)', color: 'text.secondary' }}
+                  >
+                    Importar
+                  </Button>
+                  <Button 
+                    variant="contained" 
+                    startIcon={<AddIcon />}
+                    onClick={handleCreateFlow}
+                    sx={{ px: 3, py: 1.5 }}
+                  >
+                    Novo Fluxo
+                  </Button>
+              </Box>
             )}
           </Box>
 
           <main>
             {view === 'list' ? (
-              <FlowList onEdit={handleEditFlow} />
+              <FlowList onEdit={handleEditFlow} csrfToken={csrfToken} />
+            ) : view === 'import' ? (
+               <FlowImport 
+                  metadata={metadata} 
+                  csrfToken={csrfToken}
+                  onBack={() => { setView('list') }}
+               />
             ) : (
               <FlowEditor 
                 id={id} 

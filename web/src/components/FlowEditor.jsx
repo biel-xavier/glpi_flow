@@ -36,13 +36,13 @@ function FlowEditor({ id, metadata, csrfToken, onBack }) {
   const [tags, setTags] = useState([])
 
   useEffect(() => {
-    fetch('../plugins/flow/front/api.php?action=get_tables')
+    fetch('../marketplace/flow/front/api.php?action=get_tables')
       .then(res => res.json())
       .then(setDbTables)
   }, [])
 
   useEffect(() => {
-    fetch('../plugins/flow/front/api.php?action=get_tags')
+    fetch('../marketplace/flow/front/api.php?action=get_tags')
       .then(res => res.json())
       .then(setTags)
       .catch(() => setTags([])) // Fallback if tag plugin not installed
@@ -67,7 +67,7 @@ function FlowEditor({ id, metadata, csrfToken, onBack }) {
 
   const fetchFields = (tableName) => {
     if (!tableName || dbFields[tableName]) return;
-    fetch(`../plugins/flow/front/api.php?action=get_fields&table=${tableName}`)
+    fetch(`../marketplace/flow/front/api.php?action=get_fields&table=${tableName}`)
       .then(res => res.json())
       .then(fields => {
         setDbFields(prev => ({ ...prev, [tableName]: fields }));
@@ -79,7 +79,7 @@ function FlowEditor({ id, metadata, csrfToken, onBack }) {
       setTaskTemplatePreview(null);
       return;
     }
-    fetch(`../plugins/flow/front/api.php?action=get_task_template_preview&id=${templateId}`)
+    fetch(`../marketplace/flow/front/api.php?action=get_task_template_preview&id=${templateId}`)
       .then(res => res.json())
       .then(preview => {
         if (!preview.error) {
@@ -90,7 +90,7 @@ function FlowEditor({ id, metadata, csrfToken, onBack }) {
 
   useEffect(() => {
     if (id) {
-      fetch(`../plugins/flow/front/api.php?action=get_flow&id=${id}`)
+      fetch(`../marketplace/flow/front/api.php?action=get_flow&id=${id}`)
         .then(res => res.json())
         .then(data => {
           setFlow(data)
@@ -100,7 +100,7 @@ function FlowEditor({ id, metadata, csrfToken, onBack }) {
   }, [id])
 
   const handleSave = () => {
-    fetch('../plugins/flow/front/api.php?action=save_flow', {
+    fetch('../marketplace/flow/front/api.php?action=save_flow', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
