@@ -3,7 +3,7 @@ import {
   Box, Typography, Button, TextField, Select, MenuItem, FormControl, InputLabel, 
   Grid, Card, CardContent, Accordion, AccordionSummary, AccordionDetails, 
   IconButton, Chip, Drawer, Divider, Stack, List, ListItem, ListItemText, ListItemSecondaryAction, 
-  Paper, Tooltip
+  Paper, Tooltip, Switch
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
@@ -114,10 +114,12 @@ function FlowEditor({ id, metadata, csrfToken, onBack }) {
   const addStep = () => {
     const newStep = {
       id: null,
+      _tmp_id: 'tmp_' + Date.now() + Math.random().toString(36).substr(2, 9),
       name: 'Novo Passo',
       step_type: 'Common',
       actions: [],
-      validations: []
+      validations: [],
+      transitions: []
     }
     setFlow({ ...flow, steps: [...(flow.steps || []), newStep] })
   }
@@ -143,6 +145,32 @@ function FlowEditor({ id, metadata, csrfToken, onBack }) {
   const removeItem = (stepIndex, listKey, itemIndex) => {
     const newSteps = [...flow.steps]
     newSteps[stepIndex][listKey].splice(itemIndex, 1)
+    setFlow({ ...flow, steps: newSteps })
+  }
+
+  const getTransitionTarget = (step, type) => {
+    const trans = step.transitions?.find(t => t.transition_type === type)
+    if (!trans) return ''
+    // Return ID if exists (frontend or backend), otherwise temp ID
+    return trans.target_step_id || trans.plugin_flow_steps_id_target || trans.target_tmp_id || ''
+  }
+
+  const updateTransition = (stepIdx, type, targetValue) => {
+    const newSteps = [...flow.steps]
+    const step = { ...newSteps[stepIdx] }
+    step.transitions = step.transitions?.filter(t => t.transition_type !== type) || []
+    
+    if (targetValue) {
+      const isRealId = typeof targetValue === 'number' || (typeof targetValue === 'string' && /^\d+$/.test(targetValue));
+      const transObj = {
+        transition_type: type,
+        // Determine if it's a real ID or Temp ID
+        [isRealId ? 'target_step_id' : 'target_tmp_id']: targetValue
+      }
+      step.transitions.push(transObj)
+    }
+    
+    newSteps[stepIdx] = step
     setFlow({ ...flow, steps: newSteps })
   }
 
@@ -395,6 +423,84 @@ function FlowEditor({ id, metadata, csrfToken, onBack }) {
                       </Grid>
                     </Grid>
 
+                    <Divider sx={{ my: 2 }} />
+                    
+                    {/* TRANSITIONS SECTION */}
+                    <Box>
+                      <Typography variant="overline" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold', mb: 1 }}>
+                        <AccountTreeIcon sx={{ fontSize: 16, color: 'info.main' }} /> Transições (Próximos Passos)
+                      </Typography>
+                      
+                      <Grid container spacing={2}>
+                        {step.step_type === 'Common' || step.step_type === 'Initial' ? (
+                          <Grid item xs={12} sm={6}>
+                            <FormControl fullWidth size="small">
+                              <InputLabel>Próximo Passo</InputLabel>
+                              <Select
+                                label="Próximo Passo"
+                                value={getTransitionTarget(step, 'default')}
+                                onChange={e => updateTransition(sIdx, 'default', e.target.value)}
+                              >
+                                <MenuItem value="">-- Fim do Fluxo --</MenuItem>
+                                {flow.steps.map((targetStep, tIdx) => (
+                                  sIdx !== tIdx ? (
+                                    <MenuItem key={targetStep.id || targetStep._tmp_id || tIdx} value={targetStep.id || targetStep._tmp_id}>
+                                      #{tIdx + 1} - {targetStep.name}
+                                    </MenuItem>
+                                  ) : null
+                                ))}
+                              </Select>
+                            </FormControl>
+                          </Grid>
+                        ) : step.step_type === 'Condition' ? (
+                          <>
+                            <Grid item xs={12} sm={6}>
+                              <FormControl fullWidth size="small">
+                                <InputLabel sx={{ color: 'success.main' }}>Se VALIDADO (Positivo)</InputLabel>
+                                <Select
+                                  label="Se VALIDADO (Positivo)"
+                                  value={getTransitionTarget(step, 'condition_positive')}
+                                  onChange={e => updateTransition(sIdx, 'condition_positive', e.target.value)}
+                                >
+                                  <MenuItem value="">-- Nada --</MenuItem>
+                                  {flow.steps.map((targetStep, tIdx) => (
+                                    sIdx !== tIdx ? (
+                                      <MenuItem key={targetStep.id || targetStep._tmp_id || tIdx} value={targetStep.id || targetStep._tmp_id}>
+                                        #{tIdx + 1} - {targetStep.name}
+                                      </MenuItem>
+                                    ) : null
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                              <FormControl fullWidth size="small">
+                                <InputLabel sx={{ color: 'error.main' }}>Se FALHAR (Negativo)</InputLabel>
+                                <Select
+                                  label="Se FALHAR (Negativo)"
+                                  value={getTransitionTarget(step, 'condition_negative')}
+                                  onChange={e => updateTransition(sIdx, 'condition_negative', e.target.value)}
+                                >
+                                  <MenuItem value="">-- Nada --</MenuItem>
+                                  {flow.steps.map((targetStep, tIdx) => (
+                                    sIdx !== tIdx ? (
+                                      <MenuItem key={targetStep.id || targetStep._tmp_id || tIdx} value={targetStep.id || targetStep._tmp_id}>
+                                        #{tIdx + 1} - {targetStep.name}
+                                      </MenuItem>
+                                    ) : null
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            </Grid>
+                          </>
+                        ) : (
+                          <Grid item xs={12}>
+                            <Typography variant="caption" color="text.secondary">Passos finais não possuem transições.</Typography>
+                          </Grid>
+                        )}
+                      </Grid>
+                    </Box>
+
                     <Divider />
                     <Button 
                       variant="text" 
@@ -499,6 +605,46 @@ function FlowEditor({ id, metadata, csrfToken, onBack }) {
                             ))}
                           </Select>
                         </FormControl>
+                      ) : field.type === 'boolean' ? (
+                        <FormControl fullWidth>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 1, p: 1, px: 2 }}>
+                            <Box>
+                              <Typography variant="body2">{key}</Typography>
+                              {field.description && <Typography variant="caption" color="text.secondary">{field.description}</Typography>}
+                            </Box>
+                            <Switch
+                              checked={!!editingItem.data.config?.[key]}
+                              onChange={e => updateItemConfig(key, e.target.checked)}
+                            />
+                          </Box>
+                        </FormControl>
+                      ) : field.format === 'json' ? (
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={4}
+                          size="small"
+                          label={key}
+                          value={editingItem.data.config?.[key] ?? ''}
+                          onChange={e => updateItemConfig(key, e.target.value)}
+                          helperText={(() => {
+                            try {
+                              if (editingItem.data.config?.[key]) JSON.parse(editingItem.data.config?.[key]);
+                              return field.description || "JSON válido requerido";
+                            } catch (e) {
+                              return "JSON Inválido";
+                            }
+                          })()}
+                          error={(() => {
+                            try {
+                              if (editingItem.data.config?.[key]) JSON.parse(editingItem.data.config?.[key]);
+                              return false;
+                            } catch (e) {
+                              return true;
+                            }
+                          })()}
+                          sx={{ '& .MuiInputBase-input': { fontFamily: 'monospace', fontSize: '11px' } }}
+                        />
                       ) : isUserField ? (
                         <SearchableSelect
                           label="Usuário"

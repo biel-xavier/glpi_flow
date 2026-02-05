@@ -6,6 +6,7 @@ use CommonITILObject;
 use TicketValidation;
 use Session;
 use Sanitizer;
+use Glpi\Plugin\Flow\Utils;
 
 class RequestValidation implements ActionInterface
 {
@@ -30,6 +31,12 @@ class RequestValidation implements ActionInterface
         }
 
         $validation = new TicketValidation();
+        // Resolve Keywords for User ID
+        $userId = Utils::resolveActorId($item, $userId, 'User');
+
+        // Resolve Keywords for Group ID
+        $groupId = Utils::resolveActorId($item, $groupId, 'Group');
+
         $input = [
             'tickets_id'         => $ticketId,
             'entities_id'        => $entityId,

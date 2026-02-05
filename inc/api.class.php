@@ -169,7 +169,14 @@ class Api
             'WHERE' => ['plugin_flow_flows_id' => $flowId]
         ]));
         $existingStepIds = array_column($existingSteps, 'id');
-        $incomingStepIds = array_filter(array_column($data['steps'] ?? [], 'id'));
+
+        // Incoming IDs (only those that are integers > 0)
+        $incomingStepIds = [];
+        foreach (($data['steps'] ?? []) as $s) {
+            if (isset($s['id']) && is_numeric($s['id']) && $s['id'] > 0) {
+                $incomingStepIds[] = $s['id'];
+            }
+        }
 
         // Delete removed steps
         foreach ($existingStepIds as $id) {
@@ -179,6 +186,9 @@ class Api
             }
         }
 
+        $idMap = []; // Map "Frontend ID (Real or Temp)" => "Real DB ID"
+
+        // First Pass: Save Steps and Build Map
         foreach ($data['steps'] ?? [] as $stepData) {
             $stepObj = new \PluginFlowStep();
             $stepItem = [
@@ -187,19 +197,64 @@ class Api
                 'step_type' => $stepData['step_type']
             ];
 
-            if (isset($stepData['id']) && !empty($stepData['id'])) {
+            $realId = 0;
+            if (isset($stepData['id']) && is_numeric($stepData['id']) && $stepData['id'] > 0) {
                 $stepItem['id'] = $stepData['id'];
                 $stepObj->update($stepItem);
-                $stepId = $stepData['id'];
+                $realId = $stepData['id'];
+                $idMap[$realId] = $realId; // Map real to real
             } else {
-                $stepId = $stepObj->add($stepItem);
+                $realId = $stepObj->add($stepItem);
             }
 
-            // --- Synchronize Actions ---
-            $this->syncNested($stepId, 'glpi_plugin_flow_actions', 'plugin_flow_steps_id', $stepData['actions'] ?? [], \PluginFlowAction::class);
+            // Map the temporary ID if provided
+            if (isset($stepData['_tmp_id'])) {
+                $idMap[$stepData['_tmp_id']] = $realId;
+            }
+            // Ensure we can always look up by the "id" sent (even if it was null/0, though that's less useful without _tmp_id)
+            if (isset($stepData['id'])) {
+                $idMap[$stepData['id']] = $realId;
+            }
 
-            // --- Synchronize Validations ---
-            $this->syncNested($stepId, 'glpi_plugin_flow_validations', 'plugin_flow_steps_id', $stepData['validations'] ?? [], \PluginFlowValidation::class);
+            // Sync Actions & Validations
+            $this->syncNested($realId, 'glpi_plugin_flow_actions', 'plugin_flow_steps_id', $stepData['actions'] ?? [], \PluginFlowAction::class);
+            $this->syncNested($realId, 'glpi_plugin_flow_validations', 'plugin_flow_steps_id', $stepData['validations'] ?? [], \PluginFlowValidation::class);
+        }
+
+        // Second Pass: Save Transitions
+        // We delete all transitions for the steps involved and recreate them.
+        // This is safe because transitions are simple links.
+        $transObj = new \PluginFlowTransition();
+        $transObj->deleteByCriteria(['plugin_flow_steps_id_source' => array_values($idMap)]);
+
+        foreach ($data['steps'] ?? [] as $stepData) {
+            // Find the Source Real ID
+            $sourceId = 0;
+            if (isset($stepData['id']) && isset($idMap[$stepData['id']])) {
+                $sourceId = $idMap[$stepData['id']];
+            } elseif (isset($stepData['_tmp_id']) && isset($idMap[$stepData['_tmp_id']])) {
+                $sourceId = $idMap[$stepData['_tmp_id']];
+            }
+
+            if (!$sourceId) continue;
+
+            foreach ($stepData['transitions'] ?? [] as $trans) {
+                // Find Target Real ID
+                $targetId = 0;
+                $targetKey = $trans['target_step_id'] ?? $trans['target_tmp_id'] ?? $trans['plugin_flow_steps_id_target'] ?? null;
+
+                if ($targetKey && isset($idMap[$targetKey])) {
+                    $targetId = $idMap[$targetKey];
+                }
+
+                if ($targetId > 0) {
+                    $transObj->add([
+                        'plugin_flow_steps_id_source' => $sourceId,
+                        'plugin_flow_steps_id_target' => $targetId,
+                        'transition_type' => $trans['transition_type']
+                    ]);
+                }
+            }
         }
 
         return $this->getFlow($flowId);

@@ -275,6 +275,21 @@ function plugin_flow_install()
                     'data_comparative' => ['type' => 'array']
                 ]
             ])
+        ],
+        [
+            'name' => 'REQUEST_HTTP',
+            'description' => 'Send an HTTP request (internal or external). Placeholders: {{ticket_id}}, {{ticket_input}}',
+            'config_schema' => json_encode([
+                'type' => 'object',
+                'properties' => [
+                    'url' => ['type' => 'string'],
+                    'method' => ['type' => 'string', 'enum' => ['GET', 'POST', 'PUT', 'DELETE'], 'default' => 'POST'],
+                    'is_internal' => ['type' => 'boolean', 'default' => false, 'description' => 'If true, sends current session cookies (for GLPI internal API)'],
+                    'headers' => ['type' => 'string', 'format' => 'json', 'description' => 'JSON Object of headers'],
+                    'body' => ['type' => 'string', 'format' => 'json', 'description' => 'JSON Body content']
+                ],
+                'required' => ['url']
+            ])
         ]
     ];
 
@@ -287,6 +302,15 @@ function plugin_flow_install()
 
         if ($count['cpt'] == 0) {
             $DB->insert('glpi_plugin_flow_action_types', $action);
+        } else {
+            $DB->update(
+                'glpi_plugin_flow_action_types',
+                [
+                    'config_schema' => $action['config_schema'],
+                    'description' => $action['description']
+                ],
+                ['name' => $action['name']]
+            );
         }
     }
 

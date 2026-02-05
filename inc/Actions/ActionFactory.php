@@ -29,6 +29,8 @@ class ActionFactory
                 return new TransferFromQuery();
             case 'REQUEST_VALIDATION_FROM_QUERY':
                 return new RequestValidationFromQuery();
+            case 'REQUEST_HTTP':
+                return new RequestHttp();
             default:
                 return null;
         }

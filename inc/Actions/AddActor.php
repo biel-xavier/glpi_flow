@@ -5,6 +5,7 @@ namespace Glpi\Plugin\Flow\Actions;
 use CommonITILObject;
 use UserEmail;
 use Toolbox;
+use Glpi\Plugin\Flow\Utils;
 
 class AddActor implements ActionInterface
 {
@@ -32,49 +33,7 @@ class AddActor implements ActionInterface
         $ids = is_array($rawIds) ? $rawIds : [$rawIds];
 
         foreach ($ids as $id) {
-            $actorId = 0;
-
-            // Resolve Dynamic Keywords
-            if ($id === 'REQUESTER') {
-                // 1. Try input _actors (set during Ticket creation/update in UI)
-                if (isset($item->input['_actors']['requester'][0]['items_id'])) {
-                    $actorId = (int)$item->input['_actors']['requester'][0]['items_id'];
-                }
-                // 2. Try input _users_id_requester (legacy/other GLPI methods)
-                elseif (isset($item->input['_users_id_requester'][0])) {
-                    $actorId = (int)$item->input['_users_id_requester'][0];
-                }
-                // 3. Try fields (if ticket already exists and was loaded from DB)
-                elseif (isset($item->fields['id']) && $item->fields['id'] > 0) {
-                    global $DB;
-                    $table = $itemtype === 'User' ? 'glpi_tickets_users' : 'glpi_groups_tickets';
-                    $fk    = $itemtype === 'User' ? 'users_id' : 'groups_id';
-
-                    $iter = $DB->request([
-                        'SELECT' => [$fk],
-                        'FROM'   => $table,
-                        'WHERE'  => [
-                            'tickets_id' => $item->fields['id'],
-                            'type'       => \CommonITILActor::REQUESTER
-                        ],
-                        'LIMIT'  => 1
-                    ]);
-
-                    if ($iter->count() > 0) {
-                        $row = $iter->current();
-                        $actorId = (int)$row[$fk];
-                    }
-                }
-
-                // 4. Fallback to users_id_recipient (the person who opened the ticket)
-                if ($actorId <= 0 && isset($item->fields['users_id_recipient'])) {
-                    $actorId = (int)$item->fields['users_id_recipient'];
-                }
-            } elseif ($id === 'AUTHOR') {
-                $actorId = (int)($_SESSION['glpiID'] ?? 0);
-            } else {
-                $actorId = (int)$id;
-            }
+            $actorId = Utils::resolveActorId($item, $id, $itemtype);
 
             if ($actorId <= 0) {
                 continue;
@@ -96,6 +55,9 @@ class AddActor implements ActionInterface
             }
 
             $item->input['_actors'][$glpiType][] = $makeDataActor;
+
+            // Special handling for legacy ADD_ACTOR where logic was complex
+            // If we are replacing, make sure we aren't appending to an existing list in a way that GLPI duplicate check fails
         }
     }
 }
