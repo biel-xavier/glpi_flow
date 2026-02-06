@@ -5,6 +5,7 @@ include_once(GLPI_ROOT . '/inc/includes.php');
 
 // Require logged user
 \Session::checkLoginUser();
+\Session::checkRight('plugin_flow', READ);
 
 header('Content-Type: application/json');
 

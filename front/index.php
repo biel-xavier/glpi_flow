@@ -8,6 +8,7 @@ define('DO_NOT_CHECK_HTTP_REFERER', true);
 try {
     include_once(GLPI_ROOT . '/inc/includes.php');
     \Session::checkLoginUser();
+    \Session::checkRight('plugin_flow', READ);
 } catch (\Exception $e) {
     // If session fails, redirectto login
     header('Location: /glpi/front/login.php');

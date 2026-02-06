@@ -1,6 +1,8 @@
 <?php
 include '../../../inc/includes.php';
 
+Session::checkRight('plugin_flow', READ);
+
 $obj = new PluginFlowAction();
 
 if (isset($_POST["add"])) {

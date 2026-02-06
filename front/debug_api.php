@@ -9,6 +9,7 @@ include_once(GLPI_ROOT . '/inc/includes.php');
 $remote = $_SERVER['REMOTE_ADDR'] ?? '';
 if (!in_array($remote, ['127.0.0.1', '::1'])) {
     \Session::checkLoginUser();
+    \Session::checkRight('plugin_flow', READ);
 }
 
 header('Content-Type: application/json');

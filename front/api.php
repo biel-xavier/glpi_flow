@@ -16,6 +16,7 @@ if (!defined('GLPI_ROOT')) {
 \Toolbox::logInFile('flow-debug', "API accessed. $_SERVER[REQUEST_URI]");
 try {
     \Session::checkLoginUser();
+    \Session::checkRight('plugin_flow', READ);
     \Toolbox::logInFile('flow-debug', "Session check passed.");
 } catch (\Exception $e) {
     \Toolbox::logInFile('flow-debug', "Session check failed: " . $e->getMessage());

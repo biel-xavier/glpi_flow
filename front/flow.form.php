@@ -1,9 +1,7 @@
 <?php
 include '../../../inc/includes.php';
 
-// if (!Session::haveRight('config', READ)) {
-//    Html::displayRightError();
-// }
+Session::checkRight('plugin_flow', READ);
 
 $flow = new PluginFlowFlow();
 

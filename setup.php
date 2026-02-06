@@ -11,21 +11,7 @@ function plugin_init_flow()
 {
    global $PLUGIN_HOOKS;
 
-   $PLUGIN_HOOKS['csrf_compliant']['flow'] = true;
-
-   // Register classes (GLPI will load inc files)
-   $PLUGIN_HOOKS['add_javascript']['flow'] = [];
-   $PLUGIN_HOOKS['menu_toadd']['flow'] = ['tools' => 'PluginFlowFlow'];
-   $PLUGIN_HOOKS['menu_toadd']['flow'] = ['plugins' => 'PluginFlowFlow'];
-   // // Register events for GLPI 11 dispatcher
-   // $PLUGIN_HOOKS['events']['flow'] = [
-   //    'Ticket' => [
-   //       'add'    => ['\Glpi\Plugin\Flow\Listener', 'onTicketAdd'],
-   //       'update' => ['\Glpi\Plugin\Flow\Listener', 'onTicketUpdate'],
-   //    ]
-   // ];
-
-   // Simple PSR-4 Autoloader for Glpi\Plugin\Flow namespace
+   // Register autoloader FIRST for plugin classes
    spl_autoload_register(function ($class) {
       $prefix = 'Glpi\\Plugin\\Flow\\';
       $base_dir = GLPI_ROOT . '/marketplace/flow/inc/';
@@ -42,6 +28,16 @@ function plugin_init_flow()
          require_once $file;
       }
    });
+
+   $PLUGIN_HOOKS['csrf_compliant']['flow'] = true;
+
+   // Register classes (GLPI will load inc files)
+   $PLUGIN_HOOKS['add_javascript']['flow'] = [];
+   $PLUGIN_HOOKS['menu_toadd']['flow'] = ['tools' => 'PluginFlowFlow'];
+   $PLUGIN_HOOKS['menu_toadd']['flow'] = ['plugins' => 'PluginFlowFlow'];
+
+   // Register Profile class using Plugin::registerClass
+   \Plugin::registerClass('PluginFlowProfile', ['addtabon' => ['Profile']]);
 
    // Ensure the listener class is available
    if (file_exists(GLPI_ROOT . '/marketplace/flow/inc/listener.class.php')) {

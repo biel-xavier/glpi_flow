@@ -5,7 +5,7 @@ if (!defined('GLPI_ROOT')) {
 
 class PluginFlowFlow extends CommonDBTM
 {
-   static $rightname = 'config';
+   static $rightname = 'plugin_flow';
 
    public function defineTabs($options = [])
    {
@@ -41,6 +41,24 @@ class PluginFlowFlow extends CommonDBTM
       return $base . '/marketplace/flow/front/flow.form.php';
    }
 
+   public static function getMenuContent()
+   {
+      $plugin_web_dir = \Plugin::getWebDir('flow');
+
+      // Only show menu if user has plugin-specific right
+      if (!Session::haveRight(static::$rightname, READ)) {
+         return null;
+      }
+
+      $menu = [];
+      $menu['title'] = self::getMenuName();
+      $menu['page']  = $plugin_web_dir . '/front/flow.php';
+      $menu['links']['search'] = $plugin_web_dir . '/front/flow.php';
+      $menu['icon'] = self::getIcon();
+
+      return $menu;
+   }
+
    public static function showSearchStatusArea()
    {
       if (static::canCreate()) {
@@ -53,19 +71,19 @@ class PluginFlowFlow extends CommonDBTM
 
    public static function canUpdate(): bool
    {
-      $res = Session::haveRight('config', UPDATE);
+      $res = Session::haveRight(static::$rightname, UPDATE);
       \Toolbox::logInFile('flow-debug', "PluginFlowFlow::canUpdate check: " . ($res ? 'YES' : 'NO'));
       return $res;
    }
 
    public static function canCreate(): bool
    {
-      return Session::haveRight('config', CREATE);
+      return Session::haveRight(static::$rightname, CREATE);
    }
 
    public static function canView(): bool
    {
-      return Session::haveRight('config', READ);
+      return Session::haveRight(static::$rightname, READ);
    }
 
    public function rawSearchOptions()
