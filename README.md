@@ -25,6 +25,8 @@ Os passos definem o comportamento do fluxo em cada etapa:
 - **Condition (Condição)**: Passos de decisão automática. Ao chegar neste passo, o sistema avalia as validações vinculadas:
   - Se passarem -> segue pela transição `condition_positive`.
   - Se falharem -> segue pela transição `condition_negative`.
+- **Request (Requisição)**: Passo específico para integrações via HTTP. Executa uma requisição (Action) e valida a resposta (Validation) imediatamente, decidindo o fluxo com base no código HTTP retornado.
+
 - **End (Fim)**: Representa a conclusão do fluxo. Não possui transições de saída.
 
 ---
@@ -43,6 +45,7 @@ As ações são executadas na ordem definida assim que o ticket entra em um novo
 | **ADD_TAG**             | Adiciona uma etiqueta (tag) ao chamado.          | ID da etiqueta.                        |
 | **TRANSFER_FROM_QUERY** | Transfere o chamado baseado em uma consulta SQL. | Tabela, campo e mapeamento de valores. |
 | **REQ_VAL_FROM_QUERY**  | Solicita aprovação baseada em consulta SQL.      | Tabela e critérios de busca.           |
+| **REQUEST_HTTP**        | Envia requisição HTTP (GET, POST, etc).          | URL, Método, Headers, Body (JSON).     |
 
 ---
 
@@ -51,7 +54,8 @@ As ações são executadas na ordem definida assim que o ticket entra em um novo
 Validações garantem a integridade do processo ou decidem caminhos.
 
 - **FIELD_NOT_EMPTY**: Verifica se um campo específico do chamado (físico ou de formulário) está preenchido.
-- **QUERY_CHECK (Consulta Avançada)**: Permite verificar valores diretamente no banco de dados ou no formulário do chamado, suportando operadores como Igual, Diferente, Maior ou Menor. Pode verificar tanto o valor quanto o comprimento (length) do dado.
+- **QUERY_CHECK (Consulta Avançada)**: Permite verificar valores diretamente no banco de dados.
+- **HTTP_RESPONSE_CHECK**: Valida o código de resposta HTTP da última ação `REQUEST_HTTP`. Essencial para o passo do tipo **Requisição**.
 
 ### Severidade das Validações:
 
@@ -62,5 +66,15 @@ Validações garantem a integridade do processo ou decidem caminhos.
 
 ## 5. Fluxo de Transição
 
-1. **Trigger Manual**: Em passos `Common`, o usuário precisa clicar em "Salvar" no chamado. O sistema valida os itens `BLOCKER`. Se ok, segue a transição `default`.
-2. **Trigger Automático**: Em passos `Condition`, o sistema avalia _todas_ as validações imediatamente após entrar no passo e decide o próximo destino sem intervenção humana.
+1. **Trigger Manual**: Em passos `Common`, o usuário precisa clicar em "Salvar" no chamado.
+2. **Trigger Automático**: Em passos `Condition` e `Request`, o sistema avalia as validações automaticamente (ex: resposta da API) e transita para o próximo passo (Sucesso/Falha).
+
+## 6. Instalação e Build (Frontend)
+
+O plugin possui uma interface React no diretório `web/`.
+Caso faça alterações no frontend:
+
+1. Acesse `web/`.
+2. Execute `npm install`.
+3. Execute `npm run build`.
+4. Os arquivos serão gerados em `web/dist` e copiados para `glpi/public/flow`.

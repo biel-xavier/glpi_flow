@@ -311,6 +311,7 @@ function FlowEditor({ id, metadata, csrfToken, onBack }) {
                             <MenuItem value="Initial">Inicial</MenuItem>
                             <MenuItem value="Common">Comum</MenuItem>
                             <MenuItem value="Condition">Condição</MenuItem>
+                            <MenuItem value="Request">Requisição</MenuItem>
                             <MenuItem value="End">Fim</MenuItem>
                           </Select>
                         </FormControl>
@@ -452,7 +453,7 @@ function FlowEditor({ id, metadata, csrfToken, onBack }) {
                               </Select>
                             </FormControl>
                           </Grid>
-                        ) : step.step_type === 'Condition' ? (
+                        ) : step.step_type === 'Condition' || step.step_type === 'Request' ? (
                           <>
                             <Grid item xs={12} sm={6}>
                               <FormControl fullWidth size="small">

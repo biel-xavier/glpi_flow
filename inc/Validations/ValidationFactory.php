@@ -17,6 +17,8 @@ class ValidationFactory
                 return new FieldNotEmpty();
             case 'QUERY_CHECK':
                 return new QueryCheck();
+            case 'HTTP_RESPONSE_CHECK':
+                return new HttpResponseCheck();
             default:
                 return null;
         }

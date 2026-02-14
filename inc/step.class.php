@@ -4,34 +4,41 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
 
-class PluginFlowStep extends CommonDBTM {
-   
+class PluginFlowStep extends CommonDBTM
+{
+
    static $rightname = 'config';
 
-   static function getTypeName($nb = 0) {
+   static function getTypeName($nb = 0)
+   {
       return _n('Step', 'Steps', $nb, 'flow');
    }
 
-   static function canCreate(): bool {
-        return Session::haveRight('config', UPDATE);
+   static function canCreate(): bool
+   {
+      return Session::haveRight('config', UPDATE);
    }
 
-   static function canStart(): bool {
-       return true;
+   static function canStart(): bool
+   {
+      return true;
    }
 
-   static function canView(): bool {
-       return Session::haveRight('config', READ);
+   static function canView(): bool
+   {
+      return Session::haveRight('config', READ);
    }
 
-   public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
+   public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
+   {
       if ($item->getType() == 'PluginFlowFlow') {
          return _n('Step', 'Steps', 2, 'flow');
       }
       return '';
    }
 
-   public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
+   public static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0)
+   {
       if ($item->getType() == 'PluginFlowFlow') {
          self::showForFlow($item);
       }
@@ -41,15 +48,16 @@ class PluginFlowStep extends CommonDBTM {
    /**
     * Display steps for a specific Flow
     */
-   static function showForFlow($flow) {
+   static function showForFlow($flow)
+   {
       global $DB;
-      
+
       $ID = $flow->fields['id'];
 
       if (!PluginFlowFlow::canUpdate()) {
          return;
       }
-      
+
       echo "<div class='center'>";
       // Form to add a new step
       echo "<form method='post' action='" . PluginFlowStep::getFormURL() . "'>";
@@ -71,7 +79,7 @@ class PluginFlowStep extends CommonDBTM {
       echo "<div class='spaced'>";
       echo "<table class='tab_cadre_fixwidth'>";
       echo "<tr><th>ID</th><th>Name</th><th>Type</th><th>Actions</th></tr>";
-      
+
       $iterator = $DB->request([
          'FROM' => 'glpi_plugin_flow_steps',
          'WHERE' => ['plugin_flow_flows_id' => $ID]
@@ -90,14 +98,16 @@ class PluginFlowStep extends CommonDBTM {
       echo "</table></div>";
    }
 
-   function defineTabs($options = []) {
+   function defineTabs($options = [])
+   {
       $ong = [];
       $this->addDefaultFormTab($ong);
       // Tabs for Transitions/Validations/Actions can go here
       return $ong;
    }
 
-   function showForm($ID, $options = []) {
+   function showForm($ID, $options = [])
+   {
       $this->initForm($ID, $options);
       $this->showFormHeader($options);
 
@@ -110,7 +120,7 @@ class PluginFlowStep extends CommonDBTM {
       echo "</td>";
       echo "<td rowspan='4' class='middle right'>" . __('Comments') . "</td>";
       echo "<td class='center middle' rowspan='4'><textarea cols='45' rows='5' name='comment' >" .
-           $this->fields["comment"] . "</textarea></td>";
+         $this->fields["comment"] . "</textarea></td>";
       echo "</tr>";
 
       echo "<tr class='tab_bg_1'>";
@@ -120,6 +130,7 @@ class PluginFlowStep extends CommonDBTM {
          'Initial' => 'Initial',
          'Common' => 'Common', // Replaces ACTION
          'Condition' => 'Condition',
+         'Request' => 'Request',
          'End' => 'End'
       ];
       Dropdown::showFromArray('step_type', $types, ['value' => $this->fields['step_type']]);
@@ -130,5 +141,4 @@ class PluginFlowStep extends CommonDBTM {
       $this->showFormButtons($options);
       return true;
    }
-
 }

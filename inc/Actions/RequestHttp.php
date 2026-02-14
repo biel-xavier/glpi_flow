@@ -73,7 +73,9 @@ class RequestHttp implements ActionInterface
         if ($isInternal) {
             $sessionName = session_name();
             $sessionId = session_id();
+
             $cookieHeader = "$sessionName=$sessionId";
+            $headers[] = "Session-Token: $sessionId";
         }
 
         // 4. Initialize Curl
@@ -83,12 +85,20 @@ class RequestHttp implements ActionInterface
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_COOKIE, $cookieHeader);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5); // 5 seconds to connect
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30); // 30 seconds max execution
 
+        Toolbox::logInFile("flow-debug", "RequestHttp: Prepared $method request to $url with headers: " . json_encode($headers) . " and body: " . substr($body, 0, 200) . "..." . "\n");
         if (!empty($body) && in_array($method, ["POST", "PUT", "PATCH"])) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
         }
 
         Toolbox::logInFile("flow-debug", "RequestHttp: Sending $method to $url");
+
+        // Prevent Session Deadlock for Internal Requests
+        if ($isInternal) {
+            session_write_close();
+        }
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -101,5 +111,27 @@ class RequestHttp implements ActionInterface
         } else {
             Toolbox::logInFile("flow-debug", "RequestHttp Response [$httpCode]: " . substr($response, 0, 200) . "...");
         }
+
+        // Log to Database
+        global $DB;
+        $stepId = $config['_step_id'] ?? 0;
+        $actionId = $config['_action_id'] ?? 0;
+
+        $DB->insert('glpi_plugin_flow_request_logs', [
+            'tickets_id' => $ticketId,
+            'plugin_flow_steps_id' => $stepId,
+            'plugin_flow_actions_id' => $actionId,
+            'url' => $url,
+            'method' => $method,
+            'request_body' => $body,
+            'http_code' => $httpCode,
+            'response_body' => $response,
+            'date_creation' => $_SESSION['glpi_currenttime'] ?? date('Y-m-d H:i:s'),
+            'date_response' => date('Y-m-d H:i:s')
+        ]);
+
+        // Transient Storage for Validation
+        $item->input['_last_request_http_code'] = $httpCode;
+        $item->input['_last_request_body'] = $response;
     }
 }

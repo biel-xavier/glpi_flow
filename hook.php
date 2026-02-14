@@ -69,7 +69,7 @@ function plugin_flow_install()
           `plugin_flow_flows_id` int(11) NOT NULL DEFAULT '0', 
           `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
           `description` text COLLATE utf8mb4_unicode_ci,
-          `step_type` enum('Initial', 'Common', 'Condition', 'End') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Common',
+          `step_type` enum('Initial', 'Common', 'Condition', 'Request', 'End') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Common',
           `date_mod` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           `date_creation` timestamp DEFAULT CURRENT_TIMESTAMP,
            PRIMARY KEY (`id`),
@@ -85,7 +85,9 @@ function plugin_flow_install()
         }
 
         $migration->addField('glpi_plugin_flow_steps', 'description', 'text');
-        $migration->addField('glpi_plugin_flow_steps', 'step_type', "enum('Initial', 'Common', 'Condition', 'End')", ['value' => 'Common']);
+        $migration->addField('glpi_plugin_flow_steps', 'step_type', "enum('Initial', 'Common', 'Condition', 'Request', 'End')", ['value' => 'Common']);
+        // Force update of enum if it exists but doesn't have Request
+        $migration->changeField('glpi_plugin_flow_steps', 'step_type', 'step_type', "enum('Initial', 'Common', 'Condition', 'Request', 'End') DEFAULT 'Common'");
     }
 
     // 5. Actions
@@ -177,6 +179,29 @@ function plugin_flow_install()
           KEY `plugin_flow_flows_id` (`plugin_flow_flows_id`),
           KEY `plugin_flow_steps_id` (`plugin_flow_steps_id`),
           KEY `date_entered` (`date_entered`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+        $migration->addPostQuery($query);
+    }
+
+    // 10. Request Logs (HTTP Actions)
+    if (!$DB->tableExists('glpi_plugin_flow_request_logs')) {
+        $query = "CREATE TABLE `glpi_plugin_flow_request_logs` (
+          `id` int(11) NOT NULL AUTO_INCREMENT,
+          `tickets_id` int(11) NOT NULL DEFAULT '0',
+          `plugin_flow_steps_id` int(11) NOT NULL DEFAULT '0',
+          `plugin_flow_actions_id` int(11) NOT NULL DEFAULT '0',
+          `url` text COLLATE utf8mb4_unicode_ci,
+          `method` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT 'GET',
+          `request_body` longtext COLLATE utf8mb4_unicode_ci,
+          `http_code` int(11) DEFAULT NULL,
+          `response_body` longtext COLLATE utf8mb4_unicode_ci,
+          `date_creation` timestamp DEFAULT CURRENT_TIMESTAMP,
+          `date_response` timestamp NULL DEFAULT NULL,
+          PRIMARY KEY (`id`),
+          KEY `tickets_id` (`tickets_id`),
+          KEY `plugin_flow_steps_id` (`plugin_flow_steps_id`),
+          KEY `plugin_flow_actions_id` (`plugin_flow_actions_id`),
+          KEY `date_creation` (`date_creation`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
         $migration->addPostQuery($query);
     }
@@ -351,6 +376,18 @@ function plugin_flow_install()
                     'value' => ['type' => 'mixed']
                 ]
             ])
+        ],
+        [
+            'name' => 'HTTP_RESPONSE_CHECK',
+            'description' => 'Check HTTP Response Code from previous Request action.',
+            'config_schema' => json_encode([
+                'type' => 'object',
+                'properties' => [
+                    'expected_code' => ['type' => 'integer'],
+                    'operator' => ['type' => 'string', 'enum' => ['EQUAL', 'DIFFERENT', 'MAJOR', 'MINOR', 'REGEX'], 'default' => 'EQUAL']
+                ],
+                'required' => ['expected_code']
+            ])
         ]
     ];
 
@@ -366,7 +403,7 @@ function plugin_flow_install()
         }
     }
 
-    // 10. Install Assets (Frontend)
+    // 11. Install Assets (Frontend)
     plugin_flow_install_assets();
 
     return true;
@@ -377,7 +414,7 @@ function plugin_flow_install()
  */
 function plugin_flow_install_assets()
 {
-    $source = __DIR__ . '/web/dist';
+    $source = __DIR__ . '/dist';
     $dest = GLPI_ROOT . '/public/flow';
 
     if (!is_dir($source)) {
@@ -430,7 +467,8 @@ function plugin_flow_uninstall()
         'glpi_plugin_flow_steps',
         'glpi_plugin_flow_flows',
         'glpi_plugin_flow_action_types',
-        'glpi_plugin_flow_validation_types'
+        'glpi_plugin_flow_validation_types',
+        'glpi_plugin_flow_request_logs'
     ];
     foreach ($tables as $table) {
         if ($DB->tableExists($table)) {

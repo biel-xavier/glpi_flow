@@ -205,7 +205,7 @@ class Listener
     private static function processAutoTransitions(CommonITILObject $item, $state, $stepId)
     {
         $step = self::getStep($stepId);
-        if (!$step || $step['step_type'] !== 'Condition') {
+        if (!$step || !in_array($step['step_type'], ['Condition', 'Request'])) {
             return;
         }
 
@@ -293,10 +293,13 @@ class Listener
         foreach ($iter as $action) {
             $typeName = $action['type_name'];
             $config = json_decode($action['action_config'], true) ?? [];
-            Toolbox::logInFile('php-errors', 'Iterando sobre as ações: ' . print_r($action, true) . PHP_EOL);
 
             $handler = ActionFactory::getAction($typeName);
             if ($handler) {
+                // Inject Context for Logging
+                $config['_step_id'] = $stepId;
+                $config['_action_id'] = $action['id'];
+
                 $handler->execute($item, $config);
             }
         }
