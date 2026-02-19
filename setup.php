@@ -38,6 +38,7 @@ function plugin_init_flow()
 
    // Register Profile class using Plugin::registerClass
    \Plugin::registerClass('PluginFlowProfile', ['addtabon' => ['Profile']]);
+   \Plugin::registerClass('PluginFlowHistory', ['addtabon' => ['Ticket']]);
 
    // Ensure the listener class is available
    if (file_exists(GLPI_ROOT . '/marketplace/flow/inc/listener.class.php')) {

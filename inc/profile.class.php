@@ -31,7 +31,7 @@ class PluginFlowProfile extends Profile
         }
 
         echo "<div class='spaced'>";
-        
+
         $profile = new Profile();
         $profile->getFromDB($ID);
 
@@ -47,6 +47,11 @@ class PluginFlowProfile extends Profile
                 'itemtype' => 'PluginFlowFlow',
                 'label'    => __('Flow', 'flow'),
                 'field'    => 'plugin_flow',
+            ],
+            [
+                'itemtype' => 'PluginFlowHistory',
+                'label'    => __('Flow History', 'flow'),
+                'field'    => 'plugin_flow_history',
             ],
         ];
 
@@ -71,4 +76,3 @@ class PluginFlowProfile extends Profile
         return true;
     }
 }
-
