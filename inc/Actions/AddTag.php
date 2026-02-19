@@ -13,10 +13,12 @@ class AddTag implements ActionInterface
             return;
         }
 
-        // GLPI Tag plugin structure
-        if (!isset($item->input['_plugin_tag_tag_values']) || !is_array($item->input['_plugin_tag_tag_values'])) {
-            $item->input['_plugin_tag_tag_values'] = [];
-        }
+        unset($item->input['_plugin_tag_tag_values']);
+
+        // // GLPI Tag plugin structure
+        // if (!isset($item->input['_plugin_tag_tag_values']) || !is_array($item->input['_plugin_tag_tag_values'])) {
+        //     $item->input['_plugin_tag_tag_values'] = [];
+        // }
         $item->input['_plugin_tag_tag_values'][] = $tagId;
     }
 }
