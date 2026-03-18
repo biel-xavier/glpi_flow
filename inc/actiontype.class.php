@@ -6,18 +6,18 @@ if (!defined('GLPI_ROOT')) {
 
 class PluginFlowActionType extends CommonDBTM {
    
-   static $rightname = 'config';
+   static $rightname = 'plugin_flow';
 
    static function getTypeName($nb = 0) {
       return _n('Action Type', 'Action Types', $nb, 'flow');
    }
 
    static function canCreate(): bool {
-        return Session::haveRight('config', UPDATE);
+        return Session::haveRight(static::$rightname, UPDATE);
    }
 
    static function canView(): bool {
-       return Session::haveRight('config', READ);
+       return Session::haveRight(static::$rightname, READ);
    }
 
    function showForm($ID, $options = []) {

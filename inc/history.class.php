@@ -4,6 +4,8 @@ if (!defined('GLPI_ROOT')) {
     die("Sorry. You can't access this file directly");
 }
 
+use Glpi\Plugin\Flow\Repository\StepHistoryRepository;
+
 class PluginFlowHistory extends CommonGLPI
 {
     static $rightname = 'plugin_flow_history';
@@ -34,9 +36,8 @@ class PluginFlowHistory extends CommonGLPI
 
     public function showTimeline(Ticket $ticket)
     {
-        global $DB;
-
         $ticket_id = $ticket->getID();
+        $timeline = (new StepHistoryRepository())->findTimeline($ticket_id);
 
         echo "<div class='container-fluid'>";
         echo "<div class='row mb-2'>";
@@ -46,31 +47,6 @@ class PluginFlowHistory extends CommonGLPI
         echo "</div>";
         echo "</div>";
 
-        $iterator = $DB->request([
-            'SELECT'    => [
-                'h.date_entered',
-                's.name AS step_name',
-                'f.name AS flow_name'
-            ],
-            'FROM'      => 'glpi_plugin_flow_step_history AS h',
-            'LEFT JOIN' => [
-                'glpi_plugin_flow_steps AS s' => [
-                    'ON' => [
-                        'h' => 'plugin_flow_steps_id',
-                        's' => 'id'
-                    ]
-                ],
-                'glpi_plugin_flow_flows AS f' => [
-                    'ON' => [
-                        'h' => 'plugin_flow_flows_id',
-                        'f' => 'id'
-                    ]
-                ]
-            ],
-            'WHERE'     => ['h.tickets_id' => $ticket_id],
-            'ORDER'     => 'h.date_entered DESC'
-        ]);
-
         echo "<table class='table table-hover'>";
         echo "<thead><tr>";
         echo "<th>" . __('Flow', 'flow') . "</th>";
@@ -79,8 +55,8 @@ class PluginFlowHistory extends CommonGLPI
         echo "</tr></thead>";
         echo "<tbody>";
 
-        if (count($iterator) > 0) {
-            foreach ($iterator as $data) {
+        if (count($timeline) > 0) {
+            foreach ($timeline as $data) {
                 echo "<tr>";
                 echo "<td>" . htmlescape($data['flow_name'] ?? '---') . "</td>";
                 echo "<td>" . htmlescape($data['step_name'] ?? '---') . "</td>";

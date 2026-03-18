@@ -7,7 +7,7 @@ if (!defined('GLPI_ROOT')) {
 class PluginFlowStep extends CommonDBTM
 {
 
-   static $rightname = 'config';
+   static $rightname = 'plugin_flow';
 
    static function getTypeName($nb = 0)
    {
@@ -16,7 +16,7 @@ class PluginFlowStep extends CommonDBTM
 
    static function canCreate(): bool
    {
-      return Session::haveRight('config', UPDATE);
+      return Session::haveRight(static::$rightname, UPDATE);
    }
 
    static function canStart(): bool
@@ -26,7 +26,7 @@ class PluginFlowStep extends CommonDBTM
 
    static function canView(): bool
    {
-      return Session::haveRight('config', READ);
+      return Session::haveRight(static::$rightname, READ);
    }
 
    public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
@@ -102,7 +102,9 @@ class PluginFlowStep extends CommonDBTM
    {
       $ong = [];
       $this->addDefaultFormTab($ong);
-      // Tabs for Transitions/Validations/Actions can go here
+      $this->addStandardTab('PluginFlowAction', $ong, $options);
+      $this->addStandardTab('PluginFlowValidation', $ong, $options);
+      $this->addStandardTab('PluginFlowTransition', $ong, $options);
       return $ong;
    }
 

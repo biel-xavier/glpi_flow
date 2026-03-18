@@ -28,7 +28,7 @@ class PluginFlowFlow extends CommonDBTM
 
    public static function getIcon()
    {
-      return 'fa-project-diagram';
+      return 'ti ti-route';
    }
 
    public static function getFormURL($full = true)

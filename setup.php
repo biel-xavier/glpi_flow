@@ -33,7 +33,6 @@ function plugin_init_flow()
 
    // Register classes (GLPI will load inc files)
    $PLUGIN_HOOKS['add_javascript']['flow'] = [];
-   $PLUGIN_HOOKS['menu_toadd']['flow'] = ['tools' => 'PluginFlowFlow'];
    $PLUGIN_HOOKS['menu_toadd']['flow'] = ['plugins' => 'PluginFlowFlow'];
 
    // Register Profile class using Plugin::registerClass
