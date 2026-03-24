@@ -60,7 +60,7 @@ class FlowExecutionService
             $failedValidations = array_unique($failedValidations);
             $msg = __("Os seguintes requisitos devem ser atendidos para prosseguir:")
                 . ' ' . implode(', ', $failedValidations);
-            \Session::addMessageAfterRedirect($msg, true, ERROR);
+            \Session::addMessageAfterRedirect($msg, true, WARNING);
             $item->input = false;
             return false;
         }
