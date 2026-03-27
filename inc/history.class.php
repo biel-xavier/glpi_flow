@@ -10,6 +10,11 @@ class PluginFlowHistory extends CommonGLPI
 {
     static $rightname = 'plugin_flow_history';
 
+    public static function getIcon()
+    {
+        return 'ti ti-history';
+    }
+
     public static function getRights($interface = 'central')
     {
         return [
@@ -20,7 +25,12 @@ class PluginFlowHistory extends CommonGLPI
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
         if ($item->getType() === 'Ticket' && Session::haveRight(self::$rightname, READ)) {
-            return __('Flow Timeline', 'flow');
+            return self::createTabEntry(
+                __('Histórico do Flow', 'flow'),
+                0,
+                $item::getType(),
+                self::getIcon()
+            );
         }
         return '';
     }
@@ -49,9 +59,9 @@ class PluginFlowHistory extends CommonGLPI
 
         echo "<table class='table table-hover'>";
         echo "<thead><tr>";
-        echo "<th>" . __('Flow', 'flow') . "</th>";
-        echo "<th>" . __('Step', 'flow') . "</th>";
-        echo "<th>" . __('Date Entered', 'flow') . "</th>";
+        echo "<th>" . __('Fluxo', 'flow') . "</th>";
+        echo "<th>" . __('Etapa', 'flow') . "</th>";
+        echo "<th>" . __('Data de entrada', 'flow') . "</th>";
         echo "</tr></thead>";
         echo "<tbody>";
 
@@ -64,7 +74,7 @@ class PluginFlowHistory extends CommonGLPI
                 echo "</tr>";
             }
         } else {
-            echo "<tr><td colspan='3' class='center'>" . __('No history found', 'flow') . "</td></tr>";
+            echo "<tr><td colspan='3' class='center'>" . __('Nenhum histórico encontrado', 'flow') . "</td></tr>";
         }
 
         echo "</tbody></table>";
