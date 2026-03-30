@@ -4,6 +4,7 @@ if (!defined('GLPI_ROOT')) {
     die("Sorry. You can't access this file directly");
 }
 
+use Glpi\Plugin\Flow\Repository\FlowRepository;
 use Glpi\Plugin\Flow\Repository\StepHistoryRepository;
 
 class PluginFlowHistory extends CommonGLPI
@@ -24,10 +25,12 @@ class PluginFlowHistory extends CommonGLPI
 
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
+        $categoryId = (int) ($item->fields['itilcategories_id'] ?? 0);
+
         if (
             $item->getType() === 'Ticket'
             && Session::haveRight(self::$rightname, READ)
-            && (new StepHistoryRepository())->hasTimeline((int) $item->getID())
+            && (new FlowRepository())->hasActiveFlowForCategory($categoryId)
         ) {
             return self::createTabEntry(
                 __('Histórico do Flow', 'flow'),

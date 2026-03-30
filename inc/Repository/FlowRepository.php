@@ -4,6 +4,36 @@ namespace Glpi\Plugin\Flow\Repository;
 
 class FlowRepository
 {
+    /** @var array<string, bool> */
+    private static array $categoryCache = [];
+
+    public function hasActiveFlowForCategory(int $categoryId): bool
+    {
+        global $DB;
+
+        if ($categoryId <= 0) {
+            return false;
+        }
+
+        $cacheKey = (string) $categoryId;
+        if (array_key_exists($cacheKey, self::$categoryCache)) {
+            return self::$categoryCache[$cacheKey];
+        }
+
+        $result = $DB->request([
+            'COUNT' => 'cpt',
+            'FROM'  => 'glpi_plugin_flow_flows',
+            'WHERE' => [
+                'itilcategories_id' => $categoryId,
+                'is_active'         => 1,
+            ],
+        ])->current();
+
+        self::$categoryCache[$cacheKey] = (int) ($result['cpt'] ?? 0) > 0;
+
+        return self::$categoryCache[$cacheKey];
+    }
+
     public function findMatchingFlow(int $entityId, int $categoryId): ?array
     {
         global $DB;

@@ -403,6 +403,20 @@ function plugin_flow_install()
         }
     }
 
+    if (!class_exists('PluginFlowProfile')) {
+        require_once __DIR__ . '/inc/profile.class.php';
+    }
+
+    foreach ($DB->request([
+        'SELECT' => ['id'],
+        'FROM'   => 'glpi_profiles'
+    ]) as $profile) {
+        PluginFlowProfile::addDefaultProfileInfos((int) $profile['id'], [
+            'plugin_flow'         => 0,
+            'plugin_flow_history' => 0,
+        ]);
+    }
+
     // 11. Install Assets (Frontend)
     plugin_flow_install_assets();
 
