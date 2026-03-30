@@ -24,7 +24,11 @@ class PluginFlowHistory extends CommonGLPI
 
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
-        if ($item->getType() === 'Ticket' && Session::haveRight(self::$rightname, READ)) {
+        if (
+            $item->getType() === 'Ticket'
+            && Session::haveRight(self::$rightname, READ)
+            && (new StepHistoryRepository())->hasTimeline((int) $item->getID())
+        ) {
             return self::createTabEntry(
                 __('Histórico do Flow', 'flow'),
                 0,

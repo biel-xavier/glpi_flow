@@ -4,6 +4,20 @@ namespace Glpi\Plugin\Flow\Repository;
 
 class StepHistoryRepository
 {
+    public function hasTimeline(int $ticketId): bool
+    {
+        global $DB;
+
+        $iterator = $DB->request([
+            'SELECT' => ['id'],
+            'FROM'   => 'glpi_plugin_flow_step_history',
+            'WHERE'  => ['tickets_id' => $ticketId],
+            'LIMIT'  => 1
+        ]);
+
+        return (bool) $iterator->current();
+    }
+
     public function logStepEntry(int $ticketId, int $flowId, int $stepId): void
     {
         global $DB;
